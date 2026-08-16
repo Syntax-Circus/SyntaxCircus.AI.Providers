@@ -18,3 +18,41 @@ jobs:
           dotnet-version: 10.0.x
       - run: dotnet restore SyntaxCircus.AI.Providers.slnx
       - run: dotnet build SyntaxCircus.AI.Providers.slnx --no-restore --configuration Release
+      - run: dotnet test --solution SyntaxCircus.AI.Providers.slnx --no-build --configuration Release
+
+      - name: Pack
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: dotnet pack SyntaxCircus.AI.Providers.slnx --no-build --configuration Release --output artifacts
+
+      - name: Upload package artifact
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-package
+          path: artifacts/*.*nupkg
+          retention-days: 7
+
+#  publish:
+#    needs: build
+#    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+#    runs-on: ubuntu-latest
+#    environment: release
+#    permissions:
+#      id-token: write # enable GitHub OIDC token issuance for NuGet Trusted Publishing
+#    steps:
+#      - uses: actions/setup-dotnet@v4
+#        with:
+#          dotnet-version: 10.0.x
+#      - name: Download package artifact
+#        uses: actions/download-artifact@v4
+#        with:
+#          name: nuget-package
+#          path: artifacts
+#      - name: NuGet login (OIDC → temp API key)
+#        uses: NuGet/login@v1
+#        id: login
+#        with:
+#          user: ${{ secrets.NUGET_USER }}
+#      - name: Publish to NuGet
+#        run: dotnet nuget push artifacts/*.nupkg --api-key ${{ steps.login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+#

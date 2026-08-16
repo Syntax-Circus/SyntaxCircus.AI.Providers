@@ -1,3 +1,15 @@
 <Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+    <File Path=".github/workflows/build.yml" />
+    <File Path=".gitignore" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path="GitVersion.yml" />
+    <File Path="global.json" />
+    <File Path="LICENSE.txt" />
+    <File Path="README.md" />
+  </Folder>
   <Project Path="src/SyntaxCircus.AI.Providers/SyntaxCircus.AI.Providers.csproj" />
+  <Project Path="tests/SyntaxCircus.AI.Providers.Tests/SyntaxCircus.AI.Providers.Tests.csproj" />
 </Solution>
