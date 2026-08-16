@@ -1,6 +1,7 @@
 # SyntaxCircus.AI.Providers
 
 [![Build](https://github.com/Syntax-Circus/SyntaxCircus.AI.Providers/actions/workflows/build.yml/badge.svg)](https://github.com/Syntax-Circus/SyntaxCircus.AI.Providers/actions/workflows/build.yml)
+[![NuGet](https://img.shields.io/nuget/v/SyntaxCircus.AI.Providers.svg)](https://www.nuget.org/packages/SyntaxCircus.AI.Providers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.txt)
 
 Low-level typed HTTP clients for the Anthropic Messages API and the Gemini `generateContent` API: request/response DTOs, rate-limit handling, and `Retry-After` parsing. **Not** a unified provider abstraction — a broad `IAiProvider`-style interface covering many vendors and modes (API, CLI, etc.) and a narrow structured-classification interface solve genuinely different problems, and forcing them into one shared abstraction serves neither well. This package is just the HTTP plumbing both kinds of consumer otherwise reimplement identically.
