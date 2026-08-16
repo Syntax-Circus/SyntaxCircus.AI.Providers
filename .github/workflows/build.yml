@@ -38,8 +38,12 @@ jobs:
     runs-on: ubuntu-latest
     environment: release
     permissions:
+      contents: write
       id-token: write # enable GitHub OIDC token issuance for NuGet Trusted Publishing
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.x
@@ -55,3 +59,25 @@ jobs:
           user: ${{ secrets.NUGET_USER }}
       - name: Publish to NuGet
         run: dotnet nuget push artifacts/*.nupkg --api-key ${{ steps.login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+      - name: Tag published version
+        run: |
+          package_path=$(find artifacts -maxdepth 1 -type f -name '*.nupkg' ! -name '*.snupkg' | head -n 1)
+          if [ -z "$package_path" ]; then
+            echo "No .nupkg found to derive the release tag."
+            exit 1
+          fi
+
+          package_name=$(basename "$package_path")
+          version=${package_name#SyntaxCircus.AI.Providers.}
+          version=${version%.nupkg}
+          tag="v$version"
+
+          if git ls-remote --tags origin "refs/tags/$tag" | grep -q .; then
+            echo "Tag $tag already exists on origin."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "$tag" "$GITHUB_SHA"
+          git push origin "$tag"
