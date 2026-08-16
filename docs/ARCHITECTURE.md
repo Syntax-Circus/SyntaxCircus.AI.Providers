@@ -212,15 +212,14 @@ if (!result.Success)
 - New functionality opt-in, not breaking change
 - Follows principle of minimal surface area change
 
-### 3. Client-Side Schema Validation (Anthropic Only)
+### 3. Anthropic Structured Output
 
-**Decision**: Validate schemas client-side before sending to Anthropic API.
+**Decision**: Use Anthropic tool use to force structured JSON output when `responseJsonSchema` is provided.
 
 **Rationale**:
-- Fail fast: catch schema errors before round-trip to API
-- Reduce API costs: don't charge for rejected requests
-- Bypass available: `skipSchemaValidation=true` for advanced/edge cases
-- Only for Anthropic (Gemini relies on provider validation)
+- Fail fast: the request explicitly asks for structured output
+- Keep the response shape consistent with Gemini's structured-output flow
+- No extra public types or prompt-shape workarounds are needed
 
 ### 4. Non-Exception-Based Error Handling
 

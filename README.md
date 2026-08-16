@@ -60,7 +60,7 @@ if (!result.Success)
 // result.Content contains the response text
 ```
 
-Both `AnthropicClient` and `GeminiClient` have identical `SendAsync` signatures. See [API Reference](docs/API_REFERENCE.md) for complete method documentation, or [Examples](docs/EXAMPLES.md) for real-world usage patterns.
+Both `AnthropicClient` and `GeminiClient` accept the same `responseJsonSchema` pattern for structured output. See [API Reference](docs/API_REFERENCE.md) for complete method documentation, or [Examples](docs/EXAMPLES.md) for real-world usage patterns.
 
 ### Structured Output / Schema-Constrained Responses
 
@@ -84,25 +84,14 @@ AiCompletionResult result = await anthropicClient.SendAsync(
 
 if (!result.Success)
 {
-    if (result.Error.Contains("Invalid schema"))
-        // Schema validation failed client-side
-    // result.Error contains provider error, timeout, etc.
+    // result.Error contains provider error, timeout, or schema/tool-use issues
 }
 
 // result.Content is guaranteed to be valid JSON conforming to the schema
 var response = JsonSerializer.Deserialize<SentimentAnalysis>(result.Content);
 ```
 
-#### Schema Validation
-
-By default, the client validates schemas client-side before sending to the provider. To skip validation (e.g., for custom or experimental schema formats), pass `skipSchemaValidation: true`:
-
-```csharp
-result = await anthropicClient.SendAsync(
-    prompt: "...",
-    responseJsonSchema: schema,
-    skipSchemaValidation: true);
-```
+Anthropic uses tool use under the hood to force a structured JSON response. Gemini uses its native JSON schema response mode.
 
 ## A note on the API key
 

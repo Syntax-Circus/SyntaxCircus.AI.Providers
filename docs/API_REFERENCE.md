@@ -34,7 +34,6 @@ public async Task<AiCompletionResult> SendAsync(
     string? systemPrompt = null,
     IReadOnlyList<AiChatMessage>? conversationHistory = null,
     string? responseJsonSchema = null,
-    bool skipSchemaValidation = false,
     CancellationToken ct = default)
 ```
 
@@ -46,7 +45,6 @@ public async Task<AiCompletionResult> SendAsync(
 | `systemPrompt` | `string?` | No | System prompt to guide Claude's behavior. If not provided, uses default behavior |
 | `conversationHistory` | `IReadOnlyList<AiChatMessage>?` | No | Previous conversation turns to provide context |
 | `responseJsonSchema` | `string?` | No | Raw JSON Schema string to constrain output to a specific format |
-| `skipSchemaValidation` | `bool` | No | If true, skips client-side schema validation. Default: `false` |
 | `ct` | `CancellationToken` | No | Cancellation token for the async operation. Default: `default` |
 
 #### Returns
@@ -57,8 +55,7 @@ public async Task<AiCompletionResult> SendAsync(
 
 - All API-level failures (401, 429, 5xx, timeouts) return as `AiCompletionResult` errors, not exceptions
 - Rate limit errors set `IsRateLimited = true` and `RetryAfter` timestamp
-- Schema validation errors return with `Error` message; schema is not sent to API
-- Response is validated against the schema if provided
+- When `responseJsonSchema` is provided, Anthropic is asked to emit structured tool output and the tool input is returned as JSON text
 
 #### Example
 

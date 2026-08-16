@@ -122,6 +122,7 @@ A simple JSON Schema:
 ## Anthropic Schema Support
 
 Send schema-constrained requests to Claude using the `responseJsonSchema` parameter.
+AnthropicClient uses tool use under the hood and returns the tool input as JSON text.
 
 ### Basic Usage
 
@@ -195,9 +196,9 @@ if (result.Success)
 
 ### Anthropic-Specific Notes
 
-- Schema is validated client-side by default (can be skipped with `skipSchemaValidation: true`)
-- Response is validated against schema (type checking)
-- Both Anthropic and Gemini support identical schema format for consistency
+- Anthropic forces a single structured-output tool call
+- The returned content is the JSON serialization of the tool input
+- Both Anthropic and Gemini accept raw JSON Schema strings for consistency
 
 ---
 
@@ -244,30 +245,9 @@ if (result.Success)
 
 ## Validation & Error Handling
 
-### Client-Side Schema Validation
+### Structured Output Errors
 
-Anthropic validates schemas client-side before sending to the API:
-
-```csharp
-// Valid schema - passes validation
-var validSchema = """{"type":"object","properties":{"name":{"type":"string"}}}""";
-
-// Invalid schema - fails validation
-var invalidSchema = """{"properties":{"name":{"type":"string"}}}"""; // Missing "type"
-
-var result = await anthropicClient.SendAsync(
-    prompt: "Extract name",
-    responseJsonSchema: invalidSchema);
-
-if (!result.Success && result.Error.Contains("Invalid schema"))
-{
-    Console.WriteLine("Schema validation failed before sending to API");
-}
-```
-
-### Response Validation
-
-Both clients validate that the response matches the schema:
+Anthropic returns an error if it cannot produce structured tool output:
 
 ```csharp
 var result = await anthropicClient.SendAsync(
@@ -276,13 +256,9 @@ var result = await anthropicClient.SendAsync(
 
 if (!result.Success)
 {
-    if (result.Error.Contains("does not conform to schema"))
+    if (result.Error.Contains("Structured response missing tool output"))
     {
-        Console.WriteLine("Response doesn't match schema type");
-    }
-    else if (result.Error.Contains("not valid JSON"))
-    {
-        Console.WriteLine("Response is not valid JSON");
+        Console.WriteLine("Anthropic did not return structured tool output");
     }
 }
 ```
@@ -299,10 +275,8 @@ public async Task<T> ExtractWithSchema<T>(string text, string schema) where T : 
     return result.Success switch
     {
         true => JsonSerializer.Deserialize<T>(result.Content)!,
-        false when result.Error.Contains("Invalid schema") =>
-            throw new ArgumentException($"Schema validation failed: {result.Error}"),
-        false when result.Error.Contains("does not conform") =>
-            throw new InvalidOperationException($"Response schema mismatch: {result.Error}"),
+        false when result.Error.Contains("Structured response missing tool output") =>
+            throw new InvalidOperationException($"Anthropic did not return structured output: {result.Error}"),
         false => throw new InvalidOperationException($"Request failed: {result.Error}")
     };
 }
@@ -417,18 +391,11 @@ var result = await client.SendAsync(
     responseJsonSchema: schema);
 ```
 
-### Schema Validation is Too Strict
+### Structured Output Fails
 
-**Problem**: Client-side schema validation is rejecting valid schemas.
+**Problem**: Anthropic did not return structured tool output.
 
-**Solution** (Anthropic only): Skip client-side validation:
-
-```csharp
-var result = await anthropicClient.SendAsync(
-    prompt: prompt,
-    responseJsonSchema: schema,
-    skipSchemaValidation: true);  // Bypasses validation, relies on API
-```
+**Solution**: Ensure the prompt and schema describe the desired object shape clearly, then inspect the returned error from `SendAsync`.
 
 ---
 

@@ -368,7 +368,7 @@ public class FakeAnthropicClient : AnthropicClient
     public override async Task<AiCompletionResult> SendAsync(
         string prompt, string? systemPrompt = null, 
         IReadOnlyList<AiChatMessage>? conversationHistory = null,
-        string? responseJsonSchema = null, bool skipSchemaValidation = false,
+        string? responseJsonSchema = null,
         CancellationToken ct = default)
     {
         return new AiCompletionResult("Fake response");
