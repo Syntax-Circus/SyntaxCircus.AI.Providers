@@ -180,140 +180,39 @@ public class AnthropicClientTests
     }
 
     [Fact]
-    public async Task SendAsync_WithInvalidSchema_ReturnsValidationError()
-    {
-        var handler = new StubHttpMessageHandler(_ => throw new InvalidOperationException("Should not send request"));
-        var client = CreateClient(handler);
-        var invalidSchema = "not valid json";
-
-        var result = await client.SendAsync("hi", responseJsonSchema: invalidSchema, ct: TestContext.Current.CancellationToken);
-
-        result.Success.ShouldBeFalse();
-        result.Error.ShouldNotBeNull();
-        result.Error.ShouldContain("Invalid schema");
-        handler.LastRequest.ShouldBeNull();
-    }
-
-    [Fact]
-    public async Task SendAsync_WithSchemaWithoutType_ReturnsValidationError()
-    {
-        var handler = new StubHttpMessageHandler(_ => throw new InvalidOperationException("Should not send request"));
-        var client = CreateClient(handler);
-        var invalidSchema = """{"properties":{"name":{"type":"string"}}}""";
-
-        var result = await client.SendAsync("hi", responseJsonSchema: invalidSchema, ct: TestContext.Current.CancellationToken);
-
-        result.Success.ShouldBeFalse();
-        result.Error.ShouldNotBeNull();
-        result.Error.ShouldContain("Invalid schema");
-    }
-
-    [Fact]
-    public async Task SendAsync_WithValidSchema_IncludesOutputConfigInRequest()
+    public async Task SendAsync_WithResponseJsonSchema_SendsStructuredOutputToolDefinition()
     {
         var handler = new StubHttpMessageHandler(_ =>
-            JsonResponse(HttpStatusCode.OK, """{"content":[{"text":"{}"}]}"""));
+            JsonResponse(HttpStatusCode.OK, """{"content":[{"type":"tool_use","input":{"verdict":"allow","confidence":0.9}}]}"""));
         var client = CreateClient(handler);
-        var schema = """{"type":"object","properties":{"name":{"type":"string"}}}""";
 
-        await client.SendAsync("hi", responseJsonSchema: schema, ct: TestContext.Current.CancellationToken);
+        await client.SendAsync("hi", responseJsonSchema: """{"type":"object"}""", ct: TestContext.Current.CancellationToken);
 
-        handler.LastRequest.ShouldNotBeNull();
-        var body = JsonDocument.Parse(handler.LastRequest.Body!).RootElement;
-        body.TryGetProperty("output_config", out var outputConfig).ShouldBeTrue();
-        outputConfig.TryGetProperty("format", out var format).ShouldBeTrue();
-        format.GetProperty("type").GetString().ShouldBe("json_schema");
-        format.TryGetProperty("schema", out _).ShouldBeTrue();
+        var body = JsonDocument.Parse(handler.LastRequest!.Body!).RootElement;
+        var tools = body.GetProperty("tools");
+        tools.GetArrayLength().ShouldBe(1);
+        tools[0].GetProperty("name").GetString().ShouldBe("structured_output");
+        tools[0].GetProperty("description").GetString().ShouldBe("Return the response as structured JSON.");
+        tools[0].GetProperty("input_schema").GetProperty("type").GetString().ShouldBe("object");
+
+        var toolChoice = body.GetProperty("tool_choice");
+        toolChoice.GetProperty("type").GetString().ShouldBe("tool");
+        toolChoice.GetProperty("name").GetString().ShouldBe("structured_output");
     }
 
     [Fact]
-    public async Task SendAsync_WithoutSchema_NoOutputConfigInRequest()
+    public async Task SendAsync_WithResponseJsonSchema_ReturnsToolUseInputAsJson()
     {
         var handler = new StubHttpMessageHandler(_ =>
-            JsonResponse(HttpStatusCode.OK, """{"content":[{"text":"ok"}]}"""));
+            JsonResponse(HttpStatusCode.OK, """{"content":[{"type":"tool_use","input":{"verdict":"allow","category":null,"confidence":0.75}}],"usage":{"output_tokens":11}}"""));
         var client = CreateClient(handler);
 
-        await client.SendAsync("hi", ct: TestContext.Current.CancellationToken);
-
-        handler.LastRequest.ShouldNotBeNull();
-        var body = JsonDocument.Parse(handler.LastRequest.Body!).RootElement;
-        body.TryGetProperty("output_config", out _).ShouldBeFalse();
-    }
-
-    [Fact]
-    public async Task SendAsync_WithSchemaButMalformedResponse_ReturnsError()
-    {
-        var handler = new StubHttpMessageHandler(_ =>
-            JsonResponse(HttpStatusCode.OK, """{"content":[{"text":"not valid json"}]}"""));
-        var client = CreateClient(handler);
-        var schema = """{"type":"object","properties":{"name":{"type":"string"}}}""";
-
-        var result = await client.SendAsync("hi", responseJsonSchema: schema, ct: TestContext.Current.CancellationToken);
-
-        result.Success.ShouldBeFalse();
-        result.Error.ShouldNotBeNull();
-        result.Error.ShouldContain("not valid JSON");
-    }
-
-    [Fact]
-    public async Task SendAsync_WithSchemaAndTypeMismatch_ReturnsError()
-    {
-        var handler = new StubHttpMessageHandler(_ =>
-            JsonResponse(HttpStatusCode.OK, """{"content":[{"text":"\"string value\""}]}"""));
-        var client = CreateClient(handler);
-        var schema = """{"type":"object","properties":{"name":{"type":"string"}}}""";
-
-        var result = await client.SendAsync("hi", responseJsonSchema: schema, ct: TestContext.Current.CancellationToken);
-
-        result.Success.ShouldBeFalse();
-        result.Error.ShouldNotBeNull();
-        result.Error.ShouldContain("does not conform to schema");
-        result.Error.ShouldContain("type 'string'");
-    }
-
-    [Fact]
-    public async Task SendAsync_WithSchemaAndValidResponse_ReturnsSuccess()
-    {
-        var handler = new StubHttpMessageHandler(_ =>
-            JsonResponse(HttpStatusCode.OK, """{"content":[{"text":"{}","type":"text"}],"usage":{"output_tokens":10}}"""));
-        var client = CreateClient(handler);
-        var schema = """{"type":"object","properties":{"name":{"type":"string"}}}""";
-
-        var result = await client.SendAsync("hi", responseJsonSchema: schema, ct: TestContext.Current.CancellationToken);
+        var result = await client.SendAsync("hi", responseJsonSchema: """{"type":"object"}""", ct: TestContext.Current.CancellationToken);
 
         result.Success.ShouldBeTrue();
-        result.Content.ShouldBe("{}");
-        result.TokensUsed.ShouldBe(10);
-    }
-
-    [Fact]
-    public async Task SendAsync_WithSchemaButSkipValidation_SendsSchemaWithoutValidating()
-    {
-        var handler = new StubHttpMessageHandler(_ =>
-            JsonResponse(HttpStatusCode.OK, """{"content":[{"text":"{}"}]}"""));
-        var client = CreateClient(handler);
-        var validSchema = """{"type":"object","properties":{"name":{"type":"string"}}}""";
-
-        await client.SendAsync("hi", responseJsonSchema: validSchema, skipSchemaValidation: true, ct: TestContext.Current.CancellationToken);
-
-        handler.LastRequest.ShouldNotBeNull();
-        var body = JsonDocument.Parse(handler.LastRequest.Body!).RootElement;
-        body.TryGetProperty("output_config", out var outputConfig).ShouldBeTrue();
-        outputConfig.GetProperty("format").GetProperty("type").GetString().ShouldBe("json_schema");
-    }
-
-    [Fact]
-    public async Task SendAsync_WithSchemaAndArrayResponse_ReturnsError()
-    {
-        var handler = new StubHttpMessageHandler(_ =>
-            JsonResponse(HttpStatusCode.OK, """{"content":[{"text":"[]"}]}"""));
-        var client = CreateClient(handler);
-        var schema = """{"type":"object","properties":{"name":{"type":"string"}}}""";
-
-        var result = await client.SendAsync("hi", responseJsonSchema: schema, ct: TestContext.Current.CancellationToken);
-
-        result.Success.ShouldBeFalse();
-        result.Error.ShouldNotBeNull();
-        result.Error.ShouldContain("does not conform to schema");
+        using var output = JsonDocument.Parse(result.Content);
+        output.RootElement.GetProperty("verdict").GetString().ShouldBe("allow");
+        output.RootElement.GetProperty("confidence").GetDouble().ShouldBe(0.75);
+        result.TokensUsed.ShouldBe(11);
     }
 }

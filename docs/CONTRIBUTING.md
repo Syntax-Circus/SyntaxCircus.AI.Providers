@@ -85,7 +85,6 @@ public class AnthropicClient
         string? systemPrompt = null,
         IReadOnlyList<AiChatMessage>? conversationHistory = null,
         string? responseJsonSchema = null,
-        bool skipSchemaValidation = false,
         CancellationToken ct = default)
     {
         // Implementation
@@ -165,7 +164,6 @@ public sealed class YourProviderClient
         string? systemPrompt = null,
         IReadOnlyList<AiChatMessage>? conversationHistory = null,
         string? responseJsonSchema = null,
-        bool skipSchemaValidation = false,
         CancellationToken ct = default)
     {
         if (string.IsNullOrEmpty(prompt))
@@ -184,7 +182,7 @@ public sealed class YourProviderClient
             if (!response.IsSuccessStatusCode)
                 return ParseErrorResponse(content);
 
-            return ParseSuccessResponse(content, responseJsonSchema, skipSchemaValidation);
+            return ParseSuccessResponse(content, responseJsonSchema);
         }
         catch (HttpRequestException ex)
         {

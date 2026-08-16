@@ -204,8 +204,7 @@ var fixedSchema = """
 // ⚠️ Only for debugging—don't use in production
 var result = await client.SendAsync(
     prompt: "...",
-    responseJsonSchema: schema,
-    skipSchemaValidation: true);  // Returns response even if invalid
+    responseJsonSchema: schema);
 
 // Check actual response
 Console.WriteLine(result.Content);
