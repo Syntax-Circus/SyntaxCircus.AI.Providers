@@ -5,10 +5,26 @@
     <File Path=".gitignore" />
     <File Path="Directory.Build.props" />
     <File Path="Directory.Packages.props" />
+    <File Path="docs/INDEX.md" />
     <File Path="GitVersion.yml" />
     <File Path="global.json" />
     <File Path="LICENSE.txt" />
+    <File Path="publish.ps1" />
     <File Path="README.md" />
+    <File Path="RELEASE_NOTES.md" />
+  </Folder>
+  <Folder Name="/Solution Items/docs/">
+    <File Path="docs/API_REFERENCE.md" />
+    <File Path="docs/ARCHITECTURE.md" />
+    <File Path="docs/CONTRIBUTING.md" />
+    <File Path="docs/DESIGN_PATTERNS.md" />
+    <File Path="docs/EXAMPLES.md" />
+    <File Path="docs/GETTING_STARTED.md" />
+    <File Path="docs/INDEX.md" />
+    <File Path="docs/INTEGRATION_GUIDE.md" />
+    <File Path="docs/PERFORMANCE.md" />
+    <File Path="docs/STRUCTURED_OUTPUT.md" />
+    <File Path="docs/TROUBLESHOOTING.md" />
   </Folder>
   <Project Path="src/SyntaxCircus.AI.Providers/SyntaxCircus.AI.Providers.csproj" />
   <Project Path="tests/SyntaxCircus.AI.Providers.Tests/SyntaxCircus.AI.Providers.Tests.csproj" />

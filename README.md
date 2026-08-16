@@ -8,6 +8,23 @@ Low-level typed HTTP clients for the Anthropic Messages API and the Gemini `gene
 
 > **No support guaranteed.** Published as-is and maintained on a best-effort basis. Issues and PRs are welcome, but there's no SLA — fork it or vendor what you need if that's not enough.
 
+## 📖 Documentation
+
+**Start here:**
+- **[Getting Started](docs/GETTING_STARTED.md)** — Installation, setup, first requests
+- **[Documentation Index](docs/INDEX.md)** — Full navigation by role (developer, AI agent, maintainer)
+
+**By topic:**
+- **[API Reference](docs/API_REFERENCE.md)** — Complete method signatures and error codes
+- **[Examples](docs/EXAMPLES.md)** — Real-world usage patterns with copy-paste code
+- **[Structured Output](docs/STRUCTURED_OUTPUT.md)** — Schema-constrained responses (JSON Schema guide)
+- **[Architecture](docs/ARCHITECTURE.md)** — System design, data flow, error handling philosophy
+- **[Integration Guide](docs/INTEGRATION_GUIDE.md)** — Adding to projects, DI setup, testing
+- **[Design Patterns](docs/DESIGN_PATTERNS.md)** — Common patterns (provider selection, error handling, conversation management)
+- **[Performance](docs/PERFORMANCE.md)** — Rate limiting, cost optimization, retry strategies
+- **[Troubleshooting](docs/TROUBLESHOOTING.md)** — Common issues and solutions
+- **[Contributing](docs/CONTRIBUTING.md)** — Code style, adding providers, PR process
+
 ## Setup
 
 ```csharp
@@ -21,6 +38,8 @@ builder.Services.AddAiProviders(builder.Configuration); // binds "Anthropic" and
 }
 ```
 
+See [Getting Started](docs/GETTING_STARTED.md) for detailed setup instructions.
+
 ## Usage
 
 ```csharp
@@ -33,13 +52,57 @@ if (!result.Success)
 {
     if (result.IsRateLimited)
     {
-        // back off until result.RetryAfter
+        // back off until result.RetryAfter (see Performance guide)
     }
-    // result.Error
+    // result.Error contains error message
 }
+
+// result.Content contains the response text
 ```
 
-`GeminiClient.SendAsync` has the same shape, plus an optional `responseJsonSchema` parameter — pass a raw JSON Schema string to constrain Gemini's output to `application/json` matching that schema (structured classification, extraction, etc.).
+Both `AnthropicClient` and `GeminiClient` have identical `SendAsync` signatures. See [API Reference](docs/API_REFERENCE.md) for complete method documentation, or [Examples](docs/EXAMPLES.md) for real-world usage patterns.
+
+### Structured Output / Schema-Constrained Responses
+
+Both clients support schema-constrained responses for structured classification and extraction:
+
+```csharp
+var schema = """
+{
+  "type": "object",
+  "properties": {
+    "sentiment": { "type": "string", "enum": ["positive", "negative", "neutral"] },
+    "confidence": { "type": "number" }
+  },
+  "required": ["sentiment", "confidence"]
+}
+""";
+
+AiCompletionResult result = await anthropicClient.SendAsync(
+    prompt: "Analyze this review: 'Amazing product, highly recommend!'",
+    responseJsonSchema: schema);
+
+if (!result.Success)
+{
+    if (result.Error.Contains("Invalid schema"))
+        // Schema validation failed client-side
+    // result.Error contains provider error, timeout, etc.
+}
+
+// result.Content is guaranteed to be valid JSON conforming to the schema
+var response = JsonSerializer.Deserialize<SentimentAnalysis>(result.Content);
+```
+
+#### Schema Validation
+
+By default, the client validates schemas client-side before sending to the provider. To skip validation (e.g., for custom or experimental schema formats), pass `skipSchemaValidation: true`:
+
+```csharp
+result = await anthropicClient.SendAsync(
+    prompt: "...",
+    responseJsonSchema: schema,
+    skipSchemaValidation: true);
+```
 
 ## A note on the API key
 
@@ -47,9 +110,17 @@ if (!result.Success)
 
 ## Contributing
 
-Issues and pull requests are welcome:
+Issues and pull requests are welcome. See [Contributing Guide](docs/CONTRIBUTING.md) for detailed guidelines on:
+- Code style and conventions
+- Adding new providers
+- Testing requirements
+- Documentation standards
+- Pull request process
+
+Quick summary:
 - Keep changes focused, with a clear description of the behavior change.
 - Match the existing code style (see `.editorconfig`).
+- Add tests for new features.
 - Call out any breaking changes to the public API in your PR description.
 
 ## License
