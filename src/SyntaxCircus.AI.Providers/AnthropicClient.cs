@@ -31,15 +31,31 @@ public sealed class AnthropicClient(HttpClient httpClient, IOptions<AnthropicCli
         IReadOnlyList<AiChatMessage>? conversationHistory = null,
         string? responseJsonSchema = null,
         CancellationToken ct = default)
-        => SendAsync(prompt, apiKeyOverride: null, systemPrompt, conversationHistory, responseJsonSchema, ct);
+        => SendAsync(prompt, apiKeyOverride: null, systemPrompt, conversationHistory, responseJsonSchema, modelOverride: null, ct);
 
     /// <summary>Sends a request using a caller-supplied API key instead of the configured key.</summary>
-    public async Task<AiCompletionResult> SendAsync(
+    public Task<AiCompletionResult> SendAsync(
         string prompt,
         string? apiKeyOverride,
         string? systemPrompt = null,
         IReadOnlyList<AiChatMessage>? conversationHistory = null,
         string? responseJsonSchema = null,
+        CancellationToken ct = default)
+        => SendAsync(prompt, apiKeyOverride, systemPrompt, conversationHistory, responseJsonSchema, modelOverride: null, ct);
+
+    /// <summary>
+    /// Sends a request using a caller-supplied API key and/or model instead of the configured
+    /// values. <paramref name="modelOverride"/> is useful when the model is a per-user or
+    /// per-request setting (e.g. stored in application preferences) rather than a fixed,
+    /// process-wide configuration value.
+    /// </summary>
+    public async Task<AiCompletionResult> SendAsync(
+        string prompt,
+        string? apiKeyOverride,
+        string? systemPrompt,
+        IReadOnlyList<AiChatMessage>? conversationHistory,
+        string? responseJsonSchema,
+        string? modelOverride,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(prompt);
@@ -50,6 +66,8 @@ public sealed class AnthropicClient(HttpClient httpClient, IOptions<AnthropicCli
         {
             return new AiCompletionResult(string.Empty, Error: "Anthropic API key is not configured.");
         }
+
+        var model = string.IsNullOrWhiteSpace(modelOverride) ? opts.Model : modelOverride;
 
         var messages = new List<AnthropicMessage>();
         if (conversationHistory is not null)
@@ -67,7 +85,7 @@ public sealed class AnthropicClient(HttpClient httpClient, IOptions<AnthropicCli
             : JsonSerializer.Deserialize<JsonElement>(responseJsonSchema);
 
         var body = new AnthropicRequest(
-            opts.Model,
+            model,
             opts.MaxTokens,
             systemPrompt,
             messages,
