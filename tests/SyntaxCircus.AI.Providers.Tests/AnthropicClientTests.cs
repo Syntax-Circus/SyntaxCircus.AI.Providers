@@ -40,6 +40,18 @@ public class AnthropicClientTests
     }
 
     [Fact]
+    public async Task SendAsync_WithApiKeyOverride_UsesOverrideWhenConfigurationIsEmpty()
+    {
+        var handler = new StubHttpMessageHandler(_ =>
+            JsonResponse(HttpStatusCode.OK, """{\"content\":[{\"text\":\"ok\"}]}"""));
+        var client = CreateClient(handler, apiKey: string.Empty);
+
+        await client.SendAsync("hi", ct: TestContext.Current.CancellationToken, apiKeyOverride: "runtime-key");
+
+        handler.LastRequest!.HeaderValue("x-api-key").ShouldBe("runtime-key");
+    }
+
+    [Fact]
     public async Task SendAsync_On401_ReturnsInvalidApiKeyError()
     {
         var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized));

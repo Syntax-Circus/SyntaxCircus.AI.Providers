@@ -25,8 +25,18 @@ public sealed class AnthropicClient(HttpClient httpClient, IOptions<AnthropicCli
     /// Optional raw JSON Schema string. When set, the request asks Anthropic to emit a structured
     /// tool use response that matches the schema and can be parsed as JSON.
     /// </param>
+    public Task<AiCompletionResult> SendAsync(
+        string prompt,
+        string? systemPrompt = null,
+        IReadOnlyList<AiChatMessage>? conversationHistory = null,
+        string? responseJsonSchema = null,
+        CancellationToken ct = default)
+        => SendAsync(prompt, apiKeyOverride: null, systemPrompt, conversationHistory, responseJsonSchema, ct);
+
+    /// <summary>Sends a request using a caller-supplied API key instead of the configured key.</summary>
     public async Task<AiCompletionResult> SendAsync(
         string prompt,
+        string? apiKeyOverride,
         string? systemPrompt = null,
         IReadOnlyList<AiChatMessage>? conversationHistory = null,
         string? responseJsonSchema = null,
@@ -35,7 +45,8 @@ public sealed class AnthropicClient(HttpClient httpClient, IOptions<AnthropicCli
         ArgumentNullException.ThrowIfNull(prompt);
 
         var opts = options.Value;
-        if (string.IsNullOrWhiteSpace(opts.ApiKey))
+        var apiKey = string.IsNullOrWhiteSpace(apiKeyOverride) ? opts.ApiKey : apiKeyOverride;
+        if (string.IsNullOrWhiteSpace(apiKey))
         {
             return new AiCompletionResult(string.Empty, Error: "Anthropic API key is not configured.");
         }
@@ -69,7 +80,7 @@ public sealed class AnthropicClient(HttpClient httpClient, IOptions<AnthropicCli
         {
             Content = JsonContent.Create(body, options: JsonOptions),
         };
-        request.Headers.Add("x-api-key", opts.ApiKey);
+        request.Headers.Add("x-api-key", apiKey);
         request.Headers.Add("anthropic-version", AnthropicVersion);
 
         try
