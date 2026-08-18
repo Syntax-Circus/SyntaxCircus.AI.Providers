@@ -37,6 +37,18 @@ public async Task<AiCompletionResult> SendAsync(
     CancellationToken ct = default)
 ```
 
+For a caller-supplied key, use the overload below. It preserves the configured-key overload for existing callers.
+
+```csharp
+public async Task<AiCompletionResult> SendAsync(
+    string prompt,
+    string? apiKeyOverride,
+    string? systemPrompt = null,
+    IReadOnlyList<AiChatMessage>? conversationHistory = null,
+    string? responseJsonSchema = null,
+    CancellationToken ct = default)
+```
+
 #### Parameters
 
 | Parameter | Type | Required | Description |
@@ -46,6 +58,8 @@ public async Task<AiCompletionResult> SendAsync(
 | `conversationHistory` | `IReadOnlyList<AiChatMessage>?` | No | Previous conversation turns to provide context |
 | `responseJsonSchema` | `string?` | No | Raw JSON Schema string to constrain output to a specific format |
 | `ct` | `CancellationToken` | No | Cancellation token for the async operation. Default: `default` |
+
+`apiKeyOverride` is required only by the second overload. When it is non-empty, the client uses it for that request instead of `AnthropicClientOptions.ApiKey`; it is not persisted.
 
 #### Returns
 
@@ -105,6 +119,18 @@ public async Task<AiCompletionResult> SendAsync(
     CancellationToken ct = default)
 ```
 
+The same caller-supplied-key overload is available for Gemini:
+
+```csharp
+public async Task<AiCompletionResult> SendAsync(
+    string prompt,
+    string? apiKeyOverride,
+    string? systemPrompt = null,
+    IReadOnlyList<AiChatMessage>? conversationHistory = null,
+    string? responseJsonSchema = null,
+    CancellationToken ct = default)
+```
+
 #### Parameters
 
 | Parameter | Type | Required | Description |
@@ -114,6 +140,8 @@ public async Task<AiCompletionResult> SendAsync(
 | `conversationHistory` | `IReadOnlyList<AiChatMessage>?` | No | Previous conversation turns (flattened into single turn internally) |
 | `responseJsonSchema` | `string?` | No | Raw JSON Schema string to constrain output to JSON format |
 | `ct` | `CancellationToken` | No | Cancellation token for the async operation |
+
+`apiKeyOverride` is required only by the second overload. When supplied, Gemini sends it through `x-goog-api-key` for that request and never places it in the request URI.
 
 #### Returns
 

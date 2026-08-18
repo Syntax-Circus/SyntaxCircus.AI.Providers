@@ -62,6 +62,25 @@ if (!result.Success)
 
 Both `AnthropicClient` and `GeminiClient` accept the same `responseJsonSchema` pattern for structured output. See [API Reference](docs/API_REFERENCE.md) for complete method documentation, or [Examples](docs/EXAMPLES.md) for real-world usage patterns.
 
+### Runtime API keys
+
+The standard overload obtains its key from the configured `Anthropic:ApiKey` or `Gemini:ApiKey` option. Applications that securely retrieve a user-specific key at runtime (for example, from an OS credential store) can use the overload that takes `apiKeyOverride` instead. The override is used only for that request; it is never written to configuration or logged by this package.
+
+```csharp
+string? apiKey = await credentialStore.GetAsync("MyApp", "Gemini", cancellationToken);
+if (string.IsNullOrWhiteSpace(apiKey))
+{
+    return;
+}
+
+AiCompletionResult result = await geminiClient.SendAsync(
+    prompt: "Summarize this crawl report.",
+    apiKeyOverride: apiKey,
+    ct: cancellationToken);
+```
+
+Use the normal configured-key overload for service-owned credentials. Use the runtime-key overload for per-user credentials; do not copy those secrets into `appsettings.json` merely to call a client.
+
 ### Structured Output / Schema-Constrained Responses
 
 Both clients support schema-constrained responses for structured classification and extraction:
@@ -95,7 +114,7 @@ Anthropic uses tool use under the hood to force a structured JSON response. Gemi
 
 ## A note on the API key
 
-`GeminiClient` sends the key via the `x-goog-api-key` header, not the `?key=` query-string parameter some sample code uses. A key in the URL ends up in server logs, proxy logs, and the `Referer` header of any request the response triggers — a real leak vector for something meant to stay secret. `AnthropicClient` uses `x-api-key`, which was never at risk of this since Anthropic's API never supported a query-string key.
+`GeminiClient` sends both configured and runtime override keys via the `x-goog-api-key` header, not the `?key=` query-string parameter some sample code uses. A key in the URL ends up in server logs, proxy logs, and the `Referer` header of any request the response triggers — a real leak vector for something meant to stay secret. `AnthropicClient` sends its configured or runtime override key through `x-api-key`, which was never at risk of this since Anthropic's API never supported a query-string key.
 
 ## Contributing
 
