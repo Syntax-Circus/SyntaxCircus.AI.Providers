@@ -258,6 +258,75 @@ var result = await openAiCompatibleClient.SendAsync(
     baseUrlOverride: tenantBaseUrl);
 ```
 
+### ListModelsAsync
+
+Lists the models available from the configured (or overridden) OpenAI-compatible endpoint — `GET {baseUrl}/models`.
+
+```csharp
+public async Task<AiModelsResult> ListModelsAsync(CancellationToken ct = default)
+
+public async Task<AiModelsResult> ListModelsAsync(string? apiKeyOverride, string? baseUrlOverride, CancellationToken ct = default)
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `apiKeyOverride` | `string?` | No | Takes precedence over `OpenAiCompatibleClientOptions.ApiKey` for this call only |
+| `baseUrlOverride` | `string?` | No | Takes precedence over `OpenAiCompatibleClientOptions.BaseUrl` for this call only |
+| `ct` | `CancellationToken` | No | Cancellation token for the async operation |
+
+#### Returns
+
+`Task<AiModelsResult>` — See [AiModelsResult](#aimodelsresult) for details.
+
+#### Remarks
+
+- Unlike `SendAsync`, an API key is **not** required — many OpenAI-compatible catalog endpoints (OpenRouter's included) list models without authentication. A missing/empty key simply omits the `Authorization` header rather than short-circuiting the call. The base URL is still required; a missing one short-circuits with an error and makes no HTTP call, same as `SendAsync`.
+- Response entries missing an `id` are silently skipped rather than surfaced as malformed — a partial catalog is still useful.
+- A `404` response is reported as `"This provider does not support listing models."`, distinct from other HTTP errors, since not every OpenAI-compatible endpoint implements `/models`.
+
+#### Example
+
+```csharp
+var models = await openAiCompatibleClient.ListModelsAsync(
+    apiKeyOverride: tenantApiKey,
+    baseUrlOverride: tenantBaseUrl);
+
+if (models.Success)
+{
+    foreach (var model in models.Models)
+    {
+        Console.WriteLine(model.DisplayName ?? model.Id);
+    }
+}
+```
+
+---
+
+## AiModelsResult
+
+Result of a model-catalog listing request.
+
+```csharp
+public sealed record AiModelInfo(string Id, string? DisplayName = null);
+
+public sealed record AiModelsResult(IReadOnlyList<AiModelInfo> Models, string? Error = null)
+{
+    public bool Success => Error is null;
+}
+```
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Models` | `IReadOnlyList<AiModelInfo>` | The models returned by the provider. Empty if the request failed. |
+| `Error` | `string?` | Error message if the request failed. Null if successful. |
+| `Success` | `bool` | Convenience property; true if `Error` is null. |
+
+`AiModelInfo.DisplayName` is populated only when the provider's response includes a human-readable name distinct from the model `Id` (OpenRouter's `name` field, for example); otherwise it's null and callers should fall back to displaying `Id`.
+
 ---
 
 ## AiCompletionResult

@@ -302,4 +302,133 @@ public class OpenAiCompatibleClientTests
         var body = JsonDocument.Parse(handler.LastRequest!.Body!).RootElement;
         body.GetProperty("max_tokens").GetInt32().ShouldBe(123);
     }
+
+    [Fact]
+    public async Task ListModelsAsync_OnSuccess_ReturnsParsedModels()
+    {
+        var handler = new StubHttpMessageHandler(_ =>
+            JsonResponse(HttpStatusCode.OK, """{"data":[{"id":"model-a","name":"Model A"},{"id":"model-b"}]}"""));
+        var client = CreateClient(handler);
+
+        var result = await client.ListModelsAsync(TestContext.Current.CancellationToken);
+
+        result.Success.ShouldBeTrue();
+        result.Models.Count.ShouldBe(2);
+        result.Models[0].Id.ShouldBe("model-a");
+        result.Models[0].DisplayName.ShouldBe("Model A");
+        result.Models[1].Id.ShouldBe("model-b");
+        result.Models[1].DisplayName.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task ListModelsAsync_WithNoBaseUrlConfigured_ReturnsErrorWithoutSendingRequest()
+    {
+        var handler = new StubHttpMessageHandler(_ => throw new InvalidOperationException("Should not be called."));
+        var client = CreateClient(handler, baseUrl: string.Empty);
+
+        var result = await client.ListModelsAsync(TestContext.Current.CancellationToken);
+
+        result.Success.ShouldBeFalse();
+        result.Error.ShouldBe("OpenAI-compatible base URL is not configured.");
+        handler.LastRequest.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task ListModelsAsync_WithNoApiKeyConfigured_StillSendsRequestWithoutAuthorizationHeader()
+    {
+        var handler = new StubHttpMessageHandler(_ => JsonResponse(HttpStatusCode.OK, """{"data":[]}"""));
+        var client = CreateClient(handler, apiKey: string.Empty);
+
+        var result = await client.ListModelsAsync(TestContext.Current.CancellationToken);
+
+        result.Success.ShouldBeTrue();
+        handler.LastRequest.ShouldNotBeNull();
+        handler.LastRequest.HeaderValue("Authorization").ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task ListModelsAsync_WithApiKeyOverride_UsesOverrideInAuthorizationHeader()
+    {
+        var handler = new StubHttpMessageHandler(_ => JsonResponse(HttpStatusCode.OK, """{"data":[]}"""));
+        var client = CreateClient(handler, apiKey: string.Empty);
+
+        await client.ListModelsAsync(apiKeyOverride: "runtime-key", baseUrlOverride: null, ct: TestContext.Current.CancellationToken);
+
+        handler.LastRequest!.HeaderValue("Authorization").ShouldBe("Bearer runtime-key");
+    }
+
+    [Fact]
+    public async Task ListModelsAsync_WithBaseUrlOverride_GetsFromOverrideUrl()
+    {
+        var handler = new StubHttpMessageHandler(_ => JsonResponse(HttpStatusCode.OK, """{"data":[]}"""));
+        var client = CreateClient(handler, baseUrl: DefaultBaseUrl);
+
+        await client.ListModelsAsync(apiKeyOverride: null, baseUrlOverride: "https://custom.example.com/v1/", ct: TestContext.Current.CancellationToken);
+
+        handler.LastRequest!.RequestUri!.ToString().ShouldBe("https://custom.example.com/v1/models");
+        handler.LastRequest.Method.ShouldBe(HttpMethod.Get);
+    }
+
+    [Fact]
+    public async Task ListModelsAsync_On401_ReturnsInvalidApiKeyError()
+    {
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized));
+        var client = CreateClient(handler);
+
+        var result = await client.ListModelsAsync(TestContext.Current.CancellationToken);
+
+        result.Success.ShouldBeFalse();
+        result.Error.ShouldBe("Invalid API key.");
+    }
+
+    [Fact]
+    public async Task ListModelsAsync_On404_ReturnsProviderDoesNotSupportListingError()
+    {
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.NotFound));
+        var client = CreateClient(handler);
+
+        var result = await client.ListModelsAsync(TestContext.Current.CancellationToken);
+
+        result.Success.ShouldBeFalse();
+        result.Error.ShouldBe("This provider does not support listing models.");
+    }
+
+    [Fact]
+    public async Task ListModelsAsync_On500_ReturnsHttpError()
+    {
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.InternalServerError));
+        var client = CreateClient(handler);
+
+        var result = await client.ListModelsAsync(TestContext.Current.CancellationToken);
+
+        result.Success.ShouldBeFalse();
+        result.Error.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task ListModelsAsync_OnMalformedJson_ReturnsMalformedResponseError()
+    {
+        var handler = new StubHttpMessageHandler(_ =>
+            new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("not json", System.Text.Encoding.UTF8, "application/json") });
+        var client = CreateClient(handler);
+
+        var result = await client.ListModelsAsync(TestContext.Current.CancellationToken);
+
+        result.Success.ShouldBeFalse();
+        result.Error.ShouldBe("Malformed response from provider.");
+    }
+
+    [Fact]
+    public async Task ListModelsAsync_SkipsEntriesWithNoId()
+    {
+        var handler = new StubHttpMessageHandler(_ =>
+            JsonResponse(HttpStatusCode.OK, """{"data":[{"id":"valid-model"},{"name":"no id here"}]}"""));
+        var client = CreateClient(handler);
+
+        var result = await client.ListModelsAsync(TestContext.Current.CancellationToken);
+
+        result.Success.ShouldBeTrue();
+        result.Models.Count.ShouldBe(1);
+        result.Models[0].Id.ShouldBe("valid-model");
+    }
 }
