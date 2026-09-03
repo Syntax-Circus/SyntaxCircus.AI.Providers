@@ -29,6 +29,19 @@ public class AiProvidersServiceCollectionExtensionsTests
     }
 
     [Fact]
+    public void AddAiProviders_RegistersOpenAiCompatibleClientWithoutFixedBaseAddress()
+    {
+        var services = new ServiceCollection();
+        services.AddAiProviders(new ConfigurationBuilder().Build());
+        using var provider = services.BuildServiceProvider();
+
+        var factory = provider.GetRequiredService<IHttpClientFactory>();
+        var httpClient = factory.CreateClient(nameof(OpenAiCompatibleClient));
+
+        httpClient.BaseAddress.ShouldBeNull();
+    }
+
+    [Fact]
     public void AddAiProviders_RegistersResolvableTypedClients()
     {
         var services = new ServiceCollection();
@@ -37,6 +50,7 @@ public class AiProvidersServiceCollectionExtensionsTests
 
         provider.GetRequiredService<AnthropicClient>().ShouldNotBeNull();
         provider.GetRequiredService<GeminiClient>().ShouldNotBeNull();
+        provider.GetRequiredService<OpenAiCompatibleClient>().ShouldNotBeNull();
     }
 
     [Fact]
@@ -48,6 +62,8 @@ public class AiProvidersServiceCollectionExtensionsTests
                 ["Anthropic:ApiKey"] = "anthropic-key",
                 ["Anthropic:Model"] = "claude-x",
                 ["Gemini:ApiKey"] = "gemini-key",
+                ["OpenAiCompatible:ApiKey"] = "openai-compatible-key",
+                ["OpenAiCompatible:BaseUrl"] = "https://openrouter.ai/api/v1/",
             })
             .Build();
 
@@ -61,6 +77,10 @@ public class AiProvidersServiceCollectionExtensionsTests
 
         var geminiOptions = provider.GetRequiredService<IOptions<GeminiClientOptions>>().Value;
         geminiOptions.ApiKey.ShouldBe("gemini-key");
+
+        var openAiCompatibleOptions = provider.GetRequiredService<IOptions<OpenAiCompatibleClientOptions>>().Value;
+        openAiCompatibleOptions.ApiKey.ShouldBe("openai-compatible-key");
+        openAiCompatibleOptions.BaseUrl.ShouldBe("https://openrouter.ai/api/v1/");
     }
 
     [Fact]

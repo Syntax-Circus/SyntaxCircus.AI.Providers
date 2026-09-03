@@ -98,6 +98,41 @@ public class TranslationService
 }
 ```
 
+### Runtime-Configured Endpoint (OpenAI-Compatible)
+
+`OpenAiCompatibleClient` targets any OpenAI-compatible `chat/completions` endpoint (OpenAI itself, OpenRouter, a self-hosted gateway, etc.). Unlike `AnthropicClient`/`GeminiClient`, its host is not fixed at DI-registration time — pass `baseUrlOverride` when the endpoint is stored per-tenant or per-request rather than in `appsettings.json`.
+
+```csharp
+public class OpenRouterService
+{
+    private readonly OpenAiCompatibleClient _client;
+
+    public OpenRouterService(OpenAiCompatibleClient client)
+    {
+        _client = client;
+    }
+
+    public async Task<string> Ask(string prompt, string apiKey, string model, string baseUrl)
+    {
+        var result = await _client.SendAsync(
+            prompt,
+            apiKeyOverride: apiKey,
+            systemPrompt: null,
+            conversationHistory: null,
+            responseJsonSchema: null,
+            modelOverride: model,
+            baseUrlOverride: baseUrl);
+
+        if (!result.Success)
+        {
+            throw new InvalidOperationException($"Request failed: {result.Error}");
+        }
+
+        return result.Content;
+    }
+}
+```
+
 ---
 
 ## Multi-Turn Conversations

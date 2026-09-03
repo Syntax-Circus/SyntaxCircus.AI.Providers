@@ -1,3 +1,61 @@
+# Release Notes: OpenAI-Compatible Provider Support (Unreleased)
+
+## New Features
+
+### New `OpenAiCompatibleClient` for OpenAI-Compatible `chat/completions` Endpoints
+
+A new typed client, `OpenAiCompatibleClient`, targets any OpenAI-compatible `chat/completions` API — OpenAI itself, OpenRouter, or a self-hosted gateway — bringing this package's non-exception-based error handling and rate-limit support to that provider family too.
+
+#### What's New
+
+- **New Client**: `OpenAiCompatibleClient` follows the same `SendAsync` overload ladder as `AnthropicClient`/`GeminiClient` (caller-supplied API key, then model), plus one further overload adding a caller-supplied `baseUrlOverride` — this provider's endpoint is commonly per-tenant or per-request rather than a single fixed host.
+- **New Options**: `OpenAiCompatibleClientOptions` (`ApiKey`, `Model`, `BaseUrl`, `MaxTokens`). `Model` and `BaseUrl` default to empty, unlike the other providers' options.
+- **DI Registration**: `AddAiProviders` now also registers `OpenAiCompatibleClient`, bound to the `"OpenAiCompatible"` configuration section — registered without a fixed `HttpClient.BaseAddress`, since the base URL is resolved per call.
+- **Auth**: Sends the API key via a standard `Authorization: Bearer` header.
+
+#### Usage Example
+
+```csharp
+var result = await openAiCompatibleClient.SendAsync(
+    prompt: "What is the capital of France?",
+    apiKeyOverride: tenantApiKey,
+    systemPrompt: null,
+    conversationHistory: null,
+    responseJsonSchema: null,
+    modelOverride: tenantModel,
+    baseUrlOverride: tenantBaseUrl);
+
+if (result.Success)
+{
+    Console.WriteLine(result.Content);
+}
+```
+
+## Backward Compatibility
+
+✅ **Fully backward compatible** — this is a purely additive new client and options type; no existing public API changed.
+
+## What Changed
+
+- New public class `OpenAiCompatibleClient`
+- New public class `OpenAiCompatibleClientOptions`
+- `AiProvidersServiceCollectionExtensions.AddAiProviders` now also registers `OpenAiCompatibleClient` and `OpenAiCompatibleClientOptions`
+
+## Testing
+
+- Added `OpenAiCompatibleClientTests` covering success parsing, missing API key/base URL short-circuiting, `apiKeyOverride`/`modelOverride`/`baseUrlOverride`, base URL normalization, 400/401/403/429/500 status handling, malformed JSON, and system-prompt/conversation-history mapping
+- Added `OpenAiCompatibleClientOptionsTests` for option defaults
+- Extended `AiProvidersServiceCollectionExtensionsTests` to cover the new registration and option binding
+
+## API Changes Summary
+
+- **Breaking Changes**: None
+- **New Public Types**: `OpenAiCompatibleClient`, `OpenAiCompatibleClientOptions`
+- **Modified Methods**: `AiProvidersServiceCollectionExtensions.AddAiProviders` (registers the new client/options; existing registrations unchanged)
+- **Deprecated Methods**: None
+
+---
+
 # Release Notes: Anthropic Schema Support
 
 ## New Features

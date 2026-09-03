@@ -5,6 +5,7 @@ Complete API documentation for SyntaxCircus.AI.Providers.
 ## Table of Contents
 - [AnthropicClient](#anthropicclient)
 - [GeminiClient](#geminiclient)
+- [OpenAiCompatibleClient](#openaicompatibleclient)
 - [AiCompletionResult](#aicompletionresult)
 - [AiChatMessage](#aichatmessage)
 - [SchemaValidator](#schemavalidator)
@@ -160,6 +161,101 @@ public async Task<AiCompletionResult> SendAsync(
 var result = await geminiClient.SendAsync(
     prompt: "Generate a JSON object with name and age fields",
     responseJsonSchema: schema);
+```
+
+---
+
+## OpenAiCompatibleClient
+
+Typed HTTP client for any OpenAI-compatible `chat/completions` API (OpenAI itself, OpenRouter, self-hosted gateways, etc.).
+
+### Constructor
+
+```csharp
+public OpenAiCompatibleClient(HttpClient httpClient, IOptions<OpenAiCompatibleClientOptions> options)
+```
+
+Typically injected via dependency injection. See [INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md) for setup. Unlike `AnthropicClient`/`GeminiClient`, the injected `HttpClient` has no fixed `BaseAddress` — the host is resolved per call, since this provider family's endpoint is commonly runtime-variable rather than a single well-known one.
+
+### SendAsync
+
+Sends a prompt to the configured (or overridden) OpenAI-compatible endpoint and returns the model's response.
+
+```csharp
+public async Task<AiCompletionResult> SendAsync(
+    string prompt,
+    string? systemPrompt = null,
+    IReadOnlyList<AiChatMessage>? conversationHistory = null,
+    string? responseJsonSchema = null,
+    CancellationToken ct = default)
+```
+
+Caller-supplied-key, model, and base URL overloads build on each other, culminating in the full overload:
+
+```csharp
+public async Task<AiCompletionResult> SendAsync(
+    string prompt,
+    string? apiKeyOverride,
+    string? systemPrompt = null,
+    IReadOnlyList<AiChatMessage>? conversationHistory = null,
+    string? responseJsonSchema = null,
+    CancellationToken ct = default)
+
+public async Task<AiCompletionResult> SendAsync(
+    string prompt,
+    string? apiKeyOverride,
+    string? systemPrompt,
+    IReadOnlyList<AiChatMessage>? conversationHistory,
+    string? responseJsonSchema,
+    string? modelOverride,
+    CancellationToken ct = default)
+
+public async Task<AiCompletionResult> SendAsync(
+    string prompt,
+    string? apiKeyOverride,
+    string? systemPrompt,
+    IReadOnlyList<AiChatMessage>? conversationHistory,
+    string? responseJsonSchema,
+    string? modelOverride,
+    string? baseUrlOverride,
+    CancellationToken ct = default)
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `prompt` | `string` | Yes | The user's message or question |
+| `systemPrompt` | `string?` | No | System prompt to guide the model's behavior. Omitted from the request entirely when null/whitespace |
+| `conversationHistory` | `IReadOnlyList<AiChatMessage>?` | No | Previous conversation turns, mapped directly into the `messages` array ahead of the final user turn |
+| `responseJsonSchema` | `string?` | No | Accepted for signature parity with `AnthropicClient`/`GeminiClient`; not currently wired into the request body (see Remarks) |
+| `ct` | `CancellationToken` | No | Cancellation token for the async operation |
+
+`apiKeyOverride`, `modelOverride`, and `baseUrlOverride` are each required only by the overload that introduces them. When supplied, each takes precedence over the corresponding `OpenAiCompatibleClientOptions` value for that call only; none are persisted. `baseUrlOverride` is the addition unique to this client — it lets a caller target a per-tenant or per-request endpoint (e.g. one resolved from application data at runtime) instead of a single configured host.
+
+#### Returns
+
+`Task<AiCompletionResult>` — See [AiCompletionResult](#aicompletionresult) for details.
+
+#### Remarks
+
+- The effective API key and base URL are resolved from the override (if non-empty) or `OpenAiCompatibleClientOptions`; if either is still empty/whitespace, the client short-circuits with an error and makes no HTTP call. The model has no such requirement — an empty model is sent through and left to the API to reject
+- The API key is sent via a standard `Authorization: Bearer` header, distinct from Anthropic's `x-api-key` and Gemini's `x-goog-api-key`
+- The base URL is normalized so a trailing `/` is optional: the final request always POSTs to `{baseUrl}/chat/completions`
+- `responseJsonSchema` is not currently sent as part of the request body — OpenAI-compatible endpoints vary widely in structured-output support, so this client does not assume any particular `response_format` convention
+- Rate limiting and error handling follow the same pattern as `AnthropicClient`/`GeminiClient`
+
+#### Example
+
+```csharp
+var result = await openAiCompatibleClient.SendAsync(
+    prompt: "What is the capital of France?",
+    apiKeyOverride: tenantApiKey,
+    systemPrompt: null,
+    conversationHistory: null,
+    responseJsonSchema: null,
+    modelOverride: tenantModel,
+    baseUrlOverride: tenantBaseUrl);
 ```
 
 ---
@@ -350,13 +446,39 @@ public class GeminiClientOptions
 }
 ```
 
+### OpenAiCompatibleClientOptions
+
+Configuration for `OpenAiCompatibleClient`. Unlike `AnthropicClientOptions`/`GeminiClientOptions`, `Model` and `BaseUrl` default to empty — this provider has no single fixed home, so there is nothing sensible to default to.
+
+```csharp
+public class OpenAiCompatibleClientOptions
+{
+    public string ApiKey { get; set; } = string.Empty;
+    public string Model { get; set; } = string.Empty;
+    public string BaseUrl { get; set; } = string.Empty;
+    public int MaxTokens { get; set; } = 4096;
+}
+```
+
+**Example in appsettings.json**:
+```json
+{
+  "OpenAiCompatible": {
+    "ApiKey": "...",
+    "Model": "some-free-model",
+    "BaseUrl": "https://openrouter.ai/api/v1/",
+    "MaxTokens": 4096
+  }
+}
+```
+
 ---
 
 ## Service Registration
 
 ### AddAiProviders
 
-Registers both `AnthropicClient` and `GeminiClient` in dependency injection.
+Registers `AnthropicClient`, `GeminiClient`, and `OpenAiCompatibleClient` in dependency injection.
 
 ```csharp
 public static IServiceCollection AddAiProviders(
@@ -373,8 +495,10 @@ builder.Services.AddAiProviders(builder.Configuration);
 This registers:
 - `AnthropicClient` as a scoped service
 - `GeminiClient` as a scoped service
+- `OpenAiCompatibleClient` as a scoped service, without a fixed `BaseAddress` (its host is resolved per call — see [OpenAiCompatibleClient](#openaicompatibleclient))
 - Binds `"Anthropic"` section to `AnthropicClientOptions`
 - Binds `"Gemini"` section to `GeminiClientOptions`
+- Binds `"OpenAiCompatible"` section to `OpenAiCompatibleClientOptions`
 
 ---
 
