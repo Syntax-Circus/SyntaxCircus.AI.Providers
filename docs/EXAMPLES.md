@@ -130,8 +130,16 @@ public class OpenRouterService
 
         return result.Content;
     }
+
+    public async Task<IReadOnlyList<AiModelInfo>> ListModels(string? apiKey, string baseUrl)
+    {
+        var result = await _client.ListModelsAsync(apiKeyOverride: apiKey, baseUrlOverride: baseUrl);
+        return result.Success ? result.Models : [];
+    }
 }
 ```
+
+Useful for a settings UI that lets an admin pick a model from the provider's live catalog instead of (or alongside) typing one freehand — call `ListModelsAsync` with whatever endpoint/key the admin has entered so far, even before it's saved.
 
 ---
 

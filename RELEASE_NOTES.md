@@ -1,3 +1,36 @@
+# Release Notes: OpenAiCompatibleClient Model Listing (Unreleased)
+
+## New Features
+
+### `OpenAiCompatibleClient.ListModelsAsync`
+
+Lists the models available from an OpenAI-compatible endpoint's catalog (`GET {baseUrl}/models`), so a consumer can offer a live model picker instead of (or alongside) freeform text entry.
+
+#### What's New
+
+- **New Method**: `ListModelsAsync(CancellationToken)` and `ListModelsAsync(string? apiKeyOverride, string? baseUrlOverride, CancellationToken)` on `OpenAiCompatibleClient`, following the same override pattern as `SendAsync`.
+- **New Types**: `AiModelInfo` (`Id`, `DisplayName`) and `AiModelsResult` (`Models`, `Error`, `Success`) — same non-exception-based error envelope as `AiCompletionResult`.
+- **No API key required**: unlike `SendAsync`, a missing API key only omits the `Authorization` header rather than short-circuiting the call, since many catalog endpoints (OpenRouter's included) don't require authentication to list models.
+- A `404` response is reported distinctly (`"This provider does not support listing models."`) since not every OpenAI-compatible endpoint implements this.
+
+#### Usage Example
+
+```csharp
+var models = await openAiCompatibleClient.ListModelsAsync(
+    apiKeyOverride: tenantApiKey,
+    baseUrlOverride: tenantBaseUrl);
+
+if (models.Success)
+{
+    foreach (var model in models.Models)
+    {
+        Console.WriteLine(model.DisplayName ?? model.Id);
+    }
+}
+```
+
+---
+
 # Release Notes: OpenAI-Compatible Provider Support (Unreleased)
 
 ## New Features

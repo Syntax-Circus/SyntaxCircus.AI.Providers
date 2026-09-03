@@ -170,6 +170,79 @@ public sealed class OpenAiCompatibleClient(HttpClient httpClient, IOptions<OpenA
         }
     }
 
+    /// <summary>Lists the models available from the configured OpenAI-compatible endpoint.</summary>
+    public Task<AiModelsResult> ListModelsAsync(CancellationToken ct = default)
+        => ListModelsAsync(apiKeyOverride: null, baseUrlOverride: null, ct);
+
+    /// <summary>
+    /// Lists available models using a caller-supplied API key and/or base URL instead of the
+    /// configured values — the same override pattern as <c>SendAsync</c>'s <c>apiKeyOverride</c>/
+    /// <c>baseUrlOverride</c> parameters, so a caller can preview a not-yet-saved endpoint/key
+    /// before persisting it. Unlike
+    /// <c>SendAsync</c>, an API key is not required here — many OpenAI-compatible catalog
+    /// endpoints (OpenRouter's included) list models without authentication, so a missing key
+    /// only omits the <c>Authorization</c> header rather than short-circuiting the call.
+    /// </summary>
+    public async Task<AiModelsResult> ListModelsAsync(string? apiKeyOverride, string? baseUrlOverride, CancellationToken ct = default)
+    {
+        var opts = options.Value;
+        var baseUrl = string.IsNullOrWhiteSpace(baseUrlOverride) ? opts.BaseUrl : baseUrlOverride;
+        if (string.IsNullOrWhiteSpace(baseUrl))
+        {
+            return new AiModelsResult([], Error: "OpenAI-compatible base URL is not configured.");
+        }
+
+        var apiKey = string.IsNullOrWhiteSpace(apiKeyOverride) ? opts.ApiKey : apiKeyOverride;
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"{baseUrl.TrimEnd('/')}/models");
+        if (!string.IsNullOrWhiteSpace(apiKey))
+        {
+            request.Headers.Add("Authorization", $"Bearer {apiKey}");
+        }
+
+        try
+        {
+            using var response = await httpClient.SendAsync(request, ct).ConfigureAwait(false);
+
+            if (response.StatusCode == HttpStatusCode.Unauthorized || response.StatusCode == HttpStatusCode.Forbidden)
+            {
+                return new AiModelsResult([], Error: "Invalid API key.");
+            }
+
+            if (response.StatusCode == HttpStatusCode.TooManyRequests)
+            {
+                return new AiModelsResult([], Error: "Rate limit exceeded.");
+            }
+
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                return new AiModelsResult([], Error: "This provider does not support listing models.");
+            }
+
+            response.EnsureSuccessStatusCode();
+
+            var result = await response.Content.ReadFromJsonAsync<OpenAiModelsResponse>(JsonOptions, ct).ConfigureAwait(false);
+            var models = (result?.Data ?? [])
+                .Where(m => !string.IsNullOrWhiteSpace(m.Id))
+                .Select(m => new AiModelInfo(m.Id!, m.Name))
+                .ToList();
+
+            return new AiModelsResult(models);
+        }
+        catch (TaskCanceledException) when (!ct.IsCancellationRequested)
+        {
+            return new AiModelsResult([], Error: "Request timed out.");
+        }
+        catch (HttpRequestException ex)
+        {
+            return new AiModelsResult([], Error: $"HTTP error: {ex.Message}");
+        }
+        catch (JsonException)
+        {
+            return new AiModelsResult([], Error: "Malformed response from provider.");
+        }
+    }
+
     private sealed record OpenAiChatRequest(string Model, List<OpenAiChatMessage> Messages, [property: JsonPropertyName("max_tokens")] int MaxTokens);
 
     private sealed record OpenAiChatMessage(string Role, string Content);
@@ -181,4 +254,8 @@ public sealed class OpenAiCompatibleClient(HttpClient httpClient, IOptions<OpenA
     private sealed record OpenAiChatResponseMessage(string? Content);
 
     private sealed record OpenAiChatUsage([property: JsonPropertyName("total_tokens")] int? TotalTokens);
+
+    private sealed record OpenAiModelsResponse(List<OpenAiModelEntry>? Data);
+
+    private sealed record OpenAiModelEntry(string? Id, string? Name);
 }
