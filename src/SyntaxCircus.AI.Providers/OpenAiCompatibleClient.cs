@@ -67,6 +67,13 @@ public sealed class OpenAiCompatibleClient(HttpClient httpClient, IOptions<OpenA
     /// per-request host rather than a single fixed one, so the host is resolved per call instead
     /// of being baked into the injected <see cref="HttpClient"/>'s <c>BaseAddress</c>.
     /// </summary>
+    /// <param name="responseJsonSchema">
+    /// Accepted for signature parity with <see cref="AnthropicClient"/> and
+    /// <see cref="GeminiClient"/>, but currently <b>not</b> sent to the provider — unlike those
+    /// two clients, this one is a no-op for structured output. OpenAI-compatible endpoints (and
+    /// especially OpenRouter's free-tier models) vary too widely in <c>response_format</c>
+    /// support to assume a single shape here, so no schema is included in the request body.
+    /// </param>
     public async Task<AiCompletionResult> SendAsync(
         string prompt,
         string? apiKeyOverride,
