@@ -1,3 +1,27 @@
+# Release Notes: Automatic HTTP Resilience (Unreleased)
+
+## Improvements
+
+### Retry + circuit breaker on all typed HTTP clients
+
+`AnthropicClient`, `GeminiClient`, and `OpenAiCompatibleClient` now get automatic retry
+(exponential backoff with jitter) and circuit-breaking on their underlying `HttpClient`,
+via `SyntaxCircus.Http.Resilience`'s `AddResilientHttpClient`. Transport failures, timeouts,
+and HTTP 408/500/502/503/504 responses are retried (up to 3 attempts); a circuit breaker
+opens after sustained failure to fast-fail further calls until the provider recovers.
+
+- **No public API change**: `AddAiProviders(IConfiguration)` still returns the same typed
+  clients with the same constructors; this is purely additive resilience underneath the
+  existing `HttpClient` registrations.
+- **HTTP 429 is intentionally excluded** from the automatic retry (`aiMode: true`): all three
+  clients already surface rate limiting to the caller as a non-throwing result
+  (`AiCompletionResult.IsRateLimited` / `RetryAfter`, parsed via `RetryAfterParser`), so an
+  automatic retry underneath would fight that caller-visible backoff contract instead of
+  complementing it.
+- New dependency: `SyntaxCircus.Http.Resilience` (0.2.1).
+
+---
+
 # Release Notes: OpenAiCompatibleClient Model Listing (Unreleased)
 
 ## New Features

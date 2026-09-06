@@ -40,6 +40,16 @@ builder.Services.AddAiProviders(builder.Configuration); // binds "Anthropic" and
 
 See [Getting Started](docs/GETTING_STARTED.md) for detailed setup instructions.
 
+Outbound HTTP calls from all three typed clients (`AnthropicClient`, `GeminiClient`,
+`OpenAiCompatibleClient`) automatically retry transport failures and 5xx/408 responses, with a
+circuit breaker that fast-fails once a provider is persistently unhealthy, via
+[`SyntaxCircus.Http.Resilience`](https://github.com/Syntax-Circus/SyntaxCircus.Http.Resilience)'s
+`AddResilientHttpClient` (`aiMode: true`, `retryCount: 3`). HTTP 429 is deliberately excluded from
+that automatic retry — all three clients already surface rate limiting to the caller via
+`AiCompletionResult.IsRateLimited`/`RetryAfter` (see Usage below), and retrying 429s underneath
+that would just fight the caller's own backoff. This is purely an internal pipeline change — no
+public API changed, and no extra configuration is required to get it.
+
 ## Usage
 
 ```csharp

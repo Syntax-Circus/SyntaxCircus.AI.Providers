@@ -7,10 +7,17 @@ namespace SyntaxCircus.AI.Providers.Tests.Infrastructure;
 /// </summary>
 internal sealed class StubHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responder) : HttpMessageHandler
 {
+    private int callCount;
+
     public CapturedRequest? LastRequest { get; private set; }
+
+    /// <summary>Number of times <see cref="SendAsync"/> has been invoked — useful for asserting retry behavior.</summary>
+    public int CallCount => callCount;
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
+        Interlocked.Increment(ref callCount);
+
         var body = request.Content is null
             ? null
             : await request.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
