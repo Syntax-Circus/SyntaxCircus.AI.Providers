@@ -98,4 +98,65 @@ public class AiProvidersServiceCollectionExtensionsTests
 
         Should.Throw<ArgumentNullException>(() => services.AddAiProviders(null!));
     }
+
+    [Theory]
+    [InlineData(nameof(AnthropicClient))]
+    [InlineData(nameof(GeminiClient))]
+    [InlineData(nameof(OpenAiCompatibleClient))]
+    public async Task AddAiProviders_TypedClient_RetriesTransientServerErrorsUntilSuccessful(string clientName)
+    {
+        var attempt = 0;
+        var handler = new StubHttpMessageHandler(_ =>
+        {
+            attempt++;
+            return attempt < 3
+                ? new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)
+                : new HttpResponseMessage(HttpStatusCode.OK);
+        });
+
+        var services = new ServiceCollection();
+        services.AddAiProviders(new ConfigurationBuilder().Build());
+        // HttpClientFactory registrations for the same name are additive, so this attaches a stub
+        // primary handler underneath the resilience pipeline AddAiProviders already registered
+        // above, without having to restructure AddAiProviders itself for testability.
+        services.AddHttpClient(clientName).ConfigurePrimaryHttpMessageHandler(() => handler);
+        using var provider = services.BuildServiceProvider();
+
+        var factory = provider.GetRequiredService<IHttpClientFactory>();
+        var httpClient = factory.CreateClient(clientName);
+
+        using var response = await httpClient.GetAsync(
+            new Uri("https://example.test/probe"),
+            TestContext.Current.CancellationToken);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        handler.CallCount.ShouldBe(3);
+    }
+
+    [Theory]
+    [InlineData(nameof(AnthropicClient))]
+    [InlineData(nameof(GeminiClient))]
+    [InlineData(nameof(OpenAiCompatibleClient))]
+    public async Task AddAiProviders_TypedClient_DoesNotAutoRetryTooManyRequests(string clientName)
+    {
+        // aiMode: true excludes 429 from the resilience pipeline's automatic retry, since all
+        // three typed clients already surface rate limiting to the caller themselves (see
+        // AiCompletionResult.IsRateLimited / RetryAfterParser) rather than relying on this layer.
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.TooManyRequests));
+
+        var services = new ServiceCollection();
+        services.AddAiProviders(new ConfigurationBuilder().Build());
+        services.AddHttpClient(clientName).ConfigurePrimaryHttpMessageHandler(() => handler);
+        using var provider = services.BuildServiceProvider();
+
+        var factory = provider.GetRequiredService<IHttpClientFactory>();
+        var httpClient = factory.CreateClient(clientName);
+
+        using var response = await httpClient.GetAsync(
+            new Uri("https://example.test/probe"),
+            TestContext.Current.CancellationToken);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.TooManyRequests);
+        handler.CallCount.ShouldBe(1);
+    }
 }
