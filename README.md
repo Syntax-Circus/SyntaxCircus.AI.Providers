@@ -28,7 +28,7 @@ Low-level typed HTTP clients for the Anthropic Messages API, the Gemini `generat
 ## Setup
 
 ```csharp
-builder.Services.AddAiProviders(builder.Configuration); // binds "Anthropic" and "Gemini", registers both typed clients
+builder.Services.AddAiProviders(builder.Configuration); // binds "Anthropic", "Gemini" and "OpenAiCompatible", registers all three typed clients
 ```
 
 ```json
