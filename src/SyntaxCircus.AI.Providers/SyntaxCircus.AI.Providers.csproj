@@ -5,11 +5,11 @@
     <Nullable>enable</Nullable>
     <PackageId>SyntaxCircus.AI.Providers</PackageId>
     <Title>Syntax Circus LLC AI Providers</Title>
-    <Description>Low-level typed HTTP clients for the Anthropic Messages API and the Gemini generateContent API: request/response DTOs, rate-limit handling, and Retry-After parsing. Not a unified provider abstraction — just the plumbing both APIs otherwise get reimplemented for.</Description>
+    <Description>Low-level typed HTTP clients for the Anthropic Messages API, the Gemini generateContent API and OpenAI-compatible chat/completions endpoints: request/response DTOs, rate-limit handling, and Retry-After parsing. Not a unified provider abstraction — just the plumbing these APIs otherwise get reimplemented for.</Description>
     <Authors>Syntax Circus LLC</Authors>
     <Company>Syntax Circus LLC</Company>
     <Copyright>Copyright © Syntax Circus LLC</Copyright>
-    <PackageTags>ai;anthropic;claude;gemini;llm</PackageTags>
+    <PackageTags>ai;anthropic;claude;gemini;openai;openai-compatible;llm</PackageTags>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
